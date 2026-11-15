@@ -1,0 +1,1019 @@
+<!doctype html><html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="description" content="Ισοκράτημα βυζαντινής μουσικής: ήχοι, μόρια, ηχογραφημένες φωνές, έξυπνο ίσον που ακούει τον ψάλτη.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.45 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Ισοκράτης</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#10172e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=GFS+Didot&family=Commissioner:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen instrument — big current ison on top, ήχοι, note pad, ύφεση/δίεση, settings drawer. Lapis & mosaic gold. */
+:root{
+  --bg:#10172e; --panel:#18213f; --line:#2a3560; --fg:#ece6d6; --muted:#9aa3c4;
+  --gold:#d9ad52; --gold-ink:#1a1405; --cinnabar:#d0573f; --soft:#22305a;
+  --display:"GFS Didot","Didot","Times New Roman",serif;
+  --body:"Commissioner","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#e8ebf2; --panel:#f6f7fb; --line:#c9cfdf; --fg:#18203d; --muted:#5a6487;
+  --gold:#9b6f16; --gold-ink:#fffaf0; --cinnabar:#b33a26; --soft:#dde2ee; color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#e8ebf2; --panel:#f6f7fb; --line:#c9cfdf; --fg:#18203d; --muted:#5a6487;
+  --gold:#9b6f16; --gold-ink:#fffaf0; --cinnabar:#b33a26; --soft:#dde2ee; color-scheme:light}
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 28px;
+  -webkit-tap-highlight-color:transparent}
+.app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h2{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Hero: current ison */
+.hero{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding-top:4px}
+.brand{font-family:var(--display);font-size:20px;color:var(--muted);margin:0}
+.now{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.now-note{font-family:var(--display);font-size:clamp(72px,22vw,112px);line-height:1;color:var(--gold);transition:text-shadow .4s}
+.now-alt{font-size:14px;color:var(--cinnabar);font-weight:600}
+.now-meta{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.playing .now-note{animation:breathe 4.5s ease-in-out infinite}
+@keyframes breathe{0%,100%{text-shadow:0 0 0 transparent}50%{text-shadow:0 0 28px color-mix(in srgb,var(--gold) 45%,transparent)}}
+.play{width:96px;height:96px;border-radius:50%;border:2px solid var(--gold);background:transparent;display:grid;place-items:center;transition:background .2s}
+.play svg{width:40px;height:40px;fill:var(--gold)}
+.playing .play{background:var(--gold)} .playing .play svg{fill:var(--gold-ink)}
+
+/* Echoi */
+.echoi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.echos{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 4px;font-family:var(--display);font-size:18px}
+.echos small{display:block;font-family:var(--body);font-size:11px;color:var(--muted)}
+.echos[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--soft)}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0;min-height:1.4em}
+
+/* Tonality */
+.tonic{display:grid;grid-template-columns:56px 1fr 56px;gap:8px;align-items:stretch}
+.step{border:1px solid var(--line);background:var(--panel);border-radius:12px;font-size:26px;line-height:1;color:var(--gold)}
+.step:disabled{opacity:.35;cursor:default}
+.tonic-mid{display:grid;gap:4px;min-width:0}
+.tonic-lbl{font-size:12px;color:var(--muted)}
+.tonic select{font-size:17px;padding:10px}
+.scale{display:flex;margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-variant-numeric:tabular-nums}
+.seg-i{position:relative;min-width:0;padding:6px 0 5px;border-right:1px solid var(--line);background:var(--panel);text-align:center}
+.seg-i:last-child{border-right:0}
+.seg-i b{display:block;font-family:var(--display);font-size:13px;font-weight:400;text-align:left;padding-left:4px;color:var(--fg)}
+.seg-i span{font-size:12px;color:var(--muted)}
+.seg-i.odd{background:var(--soft)}
+
+/* Smart ison */
+.smart{display:grid;gap:8px}
+.smart-btn{display:flex;gap:12px;align-items:center;text-align:left;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel)}
+.smart-btn b{display:block;font-weight:600}
+.smart-btn small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.smart-btn .dot{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--muted)}
+.smart-btn[aria-pressed="true"]{border-color:var(--gold);background:var(--soft)}
+.smart-btn[aria-pressed="true"] .dot{border-color:var(--cinnabar);background:var(--cinnabar);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.smart-st{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.smart-st b{color:var(--fg);font-family:var(--display);font-size:16px;font-weight:400}
+.smart-st a{color:var(--gold)}
+@media (prefers-reduced-motion:reduce){.smart-btn .dot{animation:none!important}}
+
+/* Listen */
+.listen{margin-top:12px;display:grid;gap:8px}
+.listen-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 14px;border-radius:12px;border:1px dashed var(--gold);background:transparent;color:var(--gold);font-weight:600}
+.listen-btn svg{width:20px;height:20px;fill:currentColor;flex:none}
+.listen-btn.on{background:var(--cinnabar);border:1px solid var(--cinnabar);color:#fff}
+.listen-st{font-size:13px;color:var(--muted);margin:0}
+.found{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.found .chip{padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-variant-numeric:tabular-nums}
+.found .chip.base{border-color:var(--gold);color:var(--gold);font-weight:600}
+.live{font-family:var(--display);font-size:28px;color:var(--fg)}
+
+/* Note pad */
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.note{position:relative;height:72px;border-radius:12px;border:1px solid var(--line);background:var(--panel);
+  font-family:var(--display);font-size:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.note .oct{font-family:var(--body);font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:.06em}
+.note .alt{position:absolute;top:5px;right:7px;font-family:var(--body);font-size:11px;font-weight:600;color:var(--cinnabar)}
+.note.sug::after{content:"";position:absolute;top:7px;left:8px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.note.base::after{background:var(--gold);width:8px;height:8px}
+.note[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+.note[aria-pressed="true"] .oct{color:var(--gold-ink)}
+.note[aria-pressed="true"]::after{background:var(--gold-ink)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+/* Alteration */
+.alts{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.alts button{background:var(--panel);border:0;border-right:1px solid var(--line);padding:10px 0;font-size:14px;font-variant-numeric:tabular-nums}
+.alts button:last-child{border-right:0}
+.alts button[aria-pressed="true"]{background:var(--cinnabar);color:#fff}
+
+/* Settings */
+details{border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+summary{padding:14px 16px;font-weight:600;list-style:none;display:flex;justify-content:space-between;cursor:pointer}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--gold);font-size:18px;line-height:1}
+details[open] summary::after{content:"−"}
+.set{padding:0 16px 16px;display:grid;gap:16px}
+.row{display:grid;gap:6px}
+.row label,.row .lbl{font-size:13px;color:var(--muted);display:flex;justify-content:space-between}
+.row output{color:var(--fg);font-variant-numeric:tabular-nums}
+.inline{display:flex;gap:8px}
+select,input[type=range]{width:100%}
+select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit}
+input[type=range]{accent-color:var(--gold)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;background:var(--bg);border:0;border-right:1px solid var(--line);padding:9px 0}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--soft);color:var(--gold);font-weight:600}
+.foot{font-size:12px;color:var(--muted);line-height:1.5}
+@media (prefers-reduced-motion:reduce){.playing .now-note{animation:none}}
+</style>
+
+<div class="app" id="app" lang="el">
+  <section class="hero">
+    <div>
+      <p class="brand">Ισοκράτης</p>
+      <div class="now"><span class="now-note" id="nowNote">Πα</span><span class="now-alt" id="nowAlt"></span></div>
+      <div class="now-meta" id="nowMeta">—</div>
+    </div>
+    <button class="play" id="play" aria-label="Έναρξη ισοκρατήματος">
+      <svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4.5v15l13-7.5z"/></svg>
+    </button>
+  </section>
+
+  <section class="smart" id="smartBox">
+    <button class="smart-btn" id="smart" aria-pressed="false">
+      <span class="dot" aria-hidden="true"></span>
+      <span><b id="smartTitle">Έξυπνο ίσον</b><small id="smartSub">Ακούει τον ψάλτη, κρατά το κούρδισμά του και αλλάζει ίσον μόνο του</small></span>
+    </button>
+    <p class="smart-st" id="smartSt" hidden></p>
+  </section>
+
+  <section>
+    <h2>Ήχος</h2>
+    <div class="echoi" id="echoi"></div>
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <section>
+    <h2>Τονικότητα</h2>
+    <div class="tonic">
+      <button class="step" id="tDown" aria-label="Μισό τόνο χαμηλότερα">−</button>
+      <div class="tonic-mid">
+        <label for="tonic" class="tonic-lbl" id="tonicLbl">Βάση</label>
+        <select id="tonic"></select>
+      </div>
+      <button class="step" id="tUp" aria-label="Μισό τόνο ψηλότερα">+</button>
+    </div>
+    <div class="scale" id="scale" aria-label="Διαστήματα κλίμακας σε μόρια"></div>
+    <div class="listen">
+      <button class="listen-btn" id="listen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1A7 7 0 0 0 19 12z"/></svg><span id="listenTxt">Άκουσέ με και βρες τη βάση</span></button>
+      <input type="file" id="rec" accept="audio/*" capture hidden>
+      <p class="listen-st" id="listenSt">Ψάλτε το απήχημα ή κρατήστε τη βάση για 2–3 δευτερόλεπτα. Η εφαρμογή παίρνει ως βάση τη νότα όπου καταλήγετε.</p>
+      <div class="found" id="found" hidden></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ίσον</h2>
+    <div class="pad" id="pad"></div>
+    <div class="legend"><span><i style="width:8px;height:8px;background:var(--gold)"></i>βάση ήχου</span><span><i style="width:6px;height:6px;background:var(--muted)"></i>συνήθη ίσα</span></div>
+  </section>
+
+  <section>
+    <h2>Ύφεση / Δίεση (μόρια)</h2>
+    <div class="alts" id="alts"></div>
+  </section>
+
+  <details id="settings">
+    <summary>Κούρδισμα &amp; φωνή</summary>
+    <div class="set">
+      <div class="row">
+        <label for="fine">Λεπτό κούρδισμα <output id="fineOut">0 cents</output></label>
+        <input type="range" id="fine" min="-50" max="50" step="1" value="0">
+      </div>
+      <div class="row">
+        <span class="lbl">Φωνή</span>
+        <div class="seg" id="vowel"></div>
+      </div>
+      <div class="row">
+        <span class="lbl">Χροιά</span>
+        <div class="seg" id="timbre"></div>
+      </div>
+      <div class="row">
+        <span class="lbl">Ψάλτες</span>
+        <div class="seg" id="voices"></div>
+      </div>
+      <div class="row">
+        <label for="vib">Ζωντάνια φωνής <output id="vibOut"></output></label>
+        <input type="range" id="vib" min="0" max="10" step="1" value="4">
+      </div>
+      <div class="row">
+        <label for="hall">Αντήχηση ναού <output id="hallOut"></output></label>
+        <input type="range" id="hall" min="0" max="100" step="1" value="45">
+      </div>
+      <div class="row">
+        <label for="vol">Ένταση <output id="volOut"></output></label>
+        <input type="range" id="vol" min="0" max="100" step="1" value="70">
+      </div>
+      <p class="foot">Κλίμακες 72 μορίων της Πατριαρχικής Επιτροπής: κάθε ήχος παίρνει το δικό του γένος (διατονικό, μαλακό ή σκληρό χρωματικό, εναρμόνιο) και η τονικότητα ορίζει σε ποια νότα πέφτει η βάση του· όλοι οι φθόγγοι μετακινούνται μαζί. Τα προτεινόμενα ίσα είναι οδηγός· αλλάζετε ίσον ελεύθερα πατώντας οποιονδήποτε φθόγγο, ακόμη και την ώρα που ακούγεται. Η οθόνη μένει αναμμένη όσο κρατιέται το ίσον.</p>
+      <p class="foot">Φωνές: πραγματικές ηχογραφήσεις χορωδίας από τα ελεύθερα soundfonts FluidR3 GM (Frank Wen, MIT), MusyngKite (Gary Hagan Cole, CC BY-SA 3.0) και FatBoy, μέσω του midi-js-soundfonts του Benjamin Gleitzman.</p>
+    </div>
+  </details>
+</div>
+
+<script>
+(() => {
+  // ---------- Data ----------
+  // Degrees Νη..Ζω = 0..6; o = octave relative to the middle one
+  const DEG = ["Νη","Πα","Βου","Γα","Δι","Κε","Ζω"];
+  const NOTES = [
+    {id:"Ni_",  d:0, o:-1}, {id:"Pa_", d:1, o:-1}, {id:"Vou_", d:2, o:-1}, {id:"Ga_", d:3, o:-1},
+    {id:"Di_",  d:4, o:-1}, {id:"Ke_", d:5, o:-1}, {id:"Zo_",  d:6, o:-1}, {id:"Ni",  d:0, o:0},
+    {id:"Pa",   d:1, o:0},  {id:"Vou", d:2, o:0},  {id:"Ga",   d:3, o:0},  {id:"Di",  d:4, o:0},
+    {id:"Ke",   d:5, o:0},  {id:"Zo",  d:6, o:0},  {id:"Ni2",  d:0, o:1},  {id:"Pa2", d:1, o:1},
+  ].map(n => Object.assign(n, {name: DEG[n.d], oct: n.o < 0 ? "κάτω" : n.o > 0 ? "πάνω" : ""}));
+  // Position of each degree in moria above Νη (72-moria octave, Patriarchal Commission 1881)
+  const GENERA = {
+    dia:  {label:"Διατονικός",          pos:[0,12,22,30,42,54,64]},
+    soft: {label:"Μαλακό χρωματικό",    pos:[0,12,20,34,42,50,64]},
+    hard: {label:"Σκληρό χρωματικό",    pos:[0,4,10,30,34,46,52]},
+    enh:  {label:"Εναρμόνιος",          pos:[0,12,24,30,42,54,60]},
+  };
+  const ECHOI = [
+    {id:"A",  n:"Α΄",    s:"Πρώτος",     g:"dia",  base:"Pa", sug:["Ni","Di","Ke"],             hint:"Βάση Πα· ίσα και σε Νη, Δι, Κε."},
+    {id:"B",  n:"Β΄",    s:"Δεύτερος",   g:"soft", base:"Di", sug:["Vou","Ga","Ke"],            hint:"Βάση Δι (στιχηραρικός), Βου στον παπαδικό· ίσα και σε Γα, Κε."},
+    {id:"G",  n:"Γ΄",    s:"Τρίτος",     g:"enh",  base:"Ga", sug:["Ni","Pa","Di"],             hint:"Βάση Γα· ίσα και σε Νη, Πα, Δι."},
+    {id:"D",  n:"Δ΄",    s:"Τέταρτος",   g:"dia",  base:"Pa", sug:["Vou","Di","Ni"],            hint:"Βάση Πα· Βου για τον Λέγετο, Δι για τα άγια· ίσα και σε Νη."},
+    {id:"PA", n:"Πλ.Α΄", s:"Πλάγιος Α΄", g:"dia",  base:"Pa", sug:["Ke_","Ni","Di","Ke"],       hint:"Βάση Πα (ή κάτω Κε)· ίσα και σε Νη, Δι."},
+    {id:"PB", n:"Πλ.Β΄", s:"Πλάγιος Β΄", g:"hard", base:"Pa", sug:["Ni","Di","Ke_"],            hint:"Βάση Πα· ίσα και σε Δι, Νη, κάτω Κε."},
+    {id:"V",  n:"Βαρύς", s:"Βαρύς",      g:"enh",  base:"Ga", sug:["Zo_","Ni","Pa","Di"],       hint:"Βάση Γα· στον διατονικό Βαρύ βάση κάτω Ζω (συχνά με ύφεση)."},
+    {id:"PD", n:"Πλ.Δ΄", s:"Πλάγιος Δ΄", g:"dia",  base:"Ni", sug:["Ga","Di","Pa","Zo_","Ke_"], hint:"Βάση Νη· ίσα και σε Γα, Δι, Πα, κάτω Ζω."},
+  ];
+  const WEST = ["Ντο","Ντο♯","Ρε","Ρε♯","Μι","Φα","Φα♯","Σολ","Σολ♯","Λα","Λα♯","Σι"];
+  const TONIC_MIN = 24, TONIC_MAX = 71;       // Ντο 1 (32,7 Hz) … Σι 4 (494 Hz)
+  const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
+  const midiName = m => `${WEST[m % 12]} ${Math.floor(m / 12) - 1}`;
+  // Male sung-vowel formants: [Hz, bandwidth Hz, dB]; trim = loudness match between vowels
+  const VOWELS = {
+    M:{label:"Μμμ", trim:1.35, lp:1500, f:[[280,60,0],[1100,150,-28],[2200,200,-30],[2900,200,-34],[3500,250,-40]]},
+    A:{label:"Α", trim:4.7, lp:7000, f:[[700,80,0],[1150,90,-6],[2600,120,-18],[2900,130,-18],[3350,200,-28]]},
+    U:{label:"Ου", trim:3.3, lp:6000, f:[[450,70,0],[800,80,-8],[2830,100,-24],[3500,130,-30],[4200,200,-40]]},
+    R:{label:"Όργανο", organ:true},
+  };
+  const TIMBRES = {bass:{label:"Μπάσος", s:0.93}, bari:{label:"Βαρύτονος", s:1}, ten:{label:"Τενόρος", s:1.07}};
+  const DETUNES = [0, 7, -6, 4];
+  const ALTS = [-6,-4,-2,0,2,4,6];
+
+  // ---------- State ----------
+  const S = {echos:"A", note:"Pa", alt:{}, tonic:50, fine:0, vowel:"A", voices:3, timbre:"bari", vib:4, hall:45, vol:70};
+  try { Object.assign(S, JSON.parse(localStorage.getItem("isokratis2") || "{}")); } catch(e){}
+  if (!VOWELS[S.vowel]) S.vowel = "A";
+  S.voices = Math.min(3, Math.max(1, S.voices || 3));
+  if (!TIMBRES[S.timbre]) S.timbre = "bari";
+  if (!(S.tonic >= TONIC_MIN && S.tonic <= TONIC_MAX)) S.tonic = 50;
+  delete S.ref; delete S.oct;
+  const save = () => { try { localStorage.setItem("isokratis2", JSON.stringify(S)); } catch(e){} };
+
+  const $ = id => document.getElementById(id);
+  const noteBy = id => NOTES.find(n => n.id === id);
+  const echos = () => ECHOI.find(x => x.id === S.echos);
+  const moriaOf = (id, g) => { const n = noteBy(id); return GENERA[g].pos[n.d] + 72 * n.o; };
+
+  // Tonality = pitch of the current ήχος' base; every other φθόγγος follows from that ήχος' own intervals.
+  function freqOf(id){
+    const e = echos();
+    const m = moriaOf(id, e.g) - moriaOf(e.base, e.g) + (S.alt[id] || 0);
+    return midiHz(S.tonic) * Math.pow(2, S.fine / 1200) * Math.pow(2, m / 72);
+  }
+
+  // ---------- Audio ----------
+  // Each chanter = glottal-pulse source (with jitter, shimmer, breath noise, slow pitch wander)
+  // run through a bank of vocal-tract formant filters, panned, into a synthetic church reverb.
+  const WORKLET = `
+  class Singer extends AudioWorkletProcessor {
+    constructor(o){
+      super(); const p = o.processorOptions || {};
+      this.lf = Math.log(p.f0 || 130); this.tlf = this.lf; this.k = 0;
+      this.ph = 0.6 + Math.random() * 0.4; this.prev = 0; this.cf = 1; this.ca = 1;
+      this.jit = p.jit || 0.004; this.shim = p.shim || 0.04; this.asp = 0.05;
+      this.d = 0; this.dAmt = p.drift || 4; this.vA = p.vib || 0;
+      this.vR = 4.4 + Math.random() * 1.3; this.vP = Math.random() * 6.28;
+      this.off = p.off || 0; this.n1 = 0; this.alive = true;
+      this.port.onmessage = e => { const m = e.data;
+        if (m.stop) this.alive = false;
+        if (m.f0){ this.tlf = Math.log(m.f0); this.k = 1 - Math.exp(-3 / (Math.max(0.004, m.glide || 0.08) * sampleRate)); }
+        if (m.drift != null) this.dAmt = m.drift;
+        if (m.vib != null) this.vA = m.vib;
+        if (m.jit != null) this.jit = m.jit;
+        if (m.shim != null) this.shim = m.shim;
+      };
+    }
+    rn(){ let u = 0; while (!u) u = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.2831853 * Math.random()); }
+    process(_, outs){
+      const o = outs[0][0], sr = sampleRate, n = o.length, dt = n / sr, th = 0.7;
+      this.d += -this.d * th * dt + this.dAmt * Math.sqrt(2 * th * dt) * this.rn();
+      const vInc = 6.2831853 * this.vR / sr;
+      for (let i = 0; i < n; i++){
+        this.lf += (this.tlf - this.lf) * this.k;
+        this.vP += vInc;
+        const cents = this.d + this.off + this.vA * Math.sin(this.vP);
+        const f = Math.exp(this.lf + cents * 0.00057762) * this.cf;
+        const inc = f / sr; this.ph += inc;
+        if (this.ph >= 1){ this.ph -= 1; this.cf = 1 + this.jit * this.rn(); this.ca = Math.max(0.6, 1 + this.shim * this.rn()); }
+        const p = this.ph; let g;
+        if (p < 0.42) g = 0.5 * (1 - Math.cos(7.47998 * p));
+        else if (p < 0.6) g = Math.cos(8.72665 * (p - 0.42));
+        else g = 0;
+        const dg = (g - this.prev) / inc / 8; this.prev = g;
+        const w = Math.random() * 2 - 1; this.n1 += 0.35 * (w - this.n1);
+        o[i] = this.ca * dg + this.asp * (w - this.n1) * (0.3 + g);
+      }
+      return this.alive;
+    }
+  }
+  registerProcessor("singer", Singer);`;
+
+  let ctx = null, master = null, dry = null, wet = null, workletOK = false;
+  let voices = [], organ = null, breathTimer = null, playing = false, wakeLock = null;
+  const volGain = () => Math.pow(S.vol / 100, 1.6) * 0.6;
+  const useVoices = () => workletOK && !VOWELS[S.vowel].organ;
+  const life = () => ({drift: 1.5 + S.vib * 0.7, vib: S.vib * 1.1, jit: 0.002 + S.vib * 0.0004, shim: 0.025 + S.vib * 0.004});
+
+  async function ensureCtx(){
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 3;
+    master = ctx.createGain(); master.gain.value = volGain();
+    master.connect(comp); comp.connect(ctx.destination);
+    dry = ctx.createGain(); wet = ctx.createGain();
+    const conv = ctx.createConvolver(); conv.buffer = churchIR();
+    dry.connect(master); wet.connect(conv); conv.connect(master);
+    setHall(true);
+    try {
+      await ctx.audioWorklet.addModule("singer.js"); workletOK = true;
+    } catch(e){
+      try {
+        const url = URL.createObjectURL(new Blob([WORKLET], {type: "application/javascript"}));
+        await ctx.audioWorklet.addModule(url); workletOK = true;
+      } catch(e2){ workletOK = false; }
+    }
+  }
+  function churchIR(){
+    const sr = ctx.sampleRate, len = Math.floor(sr * 4), b = ctx.createBuffer(2, len, sr);
+    for (let c = 0; c < 2; c++){
+      const d = b.getChannelData(c); let lp = 0;
+      for (let i = 0; i < len; i++){
+        const t = i / sr - 0.03;
+        if (t < 0) continue;
+        const a = 0.6 - 0.5 * Math.min(1, t / 3);        // darker as it decays
+        lp += a * ((Math.random() * 2 - 1) - lp);
+        d[i] = lp * Math.exp(-t * 6.9 / 3.3);              // ~3.3 s, stone church
+      }
+      for (let k = 0; k < 10; k++){
+        const idx = Math.floor(sr * (0.015 + Math.random() * 0.08));
+        d[idx] += (Math.random() < 0.5 ? -1 : 1) * (0.6 - k * 0.05);
+      }
+    }
+    return b;
+  }
+  function setHall(now){
+    if (!ctx) return;
+    const h = S.hall / 100, t = ctx.currentTime;
+    dry.gain.setTargetAtTime(1 - 0.5 * h, t, now ? 0.001 : 0.1);
+    wet.gain.setTargetAtTime(h * 1.1, t, now ? 0.001 : 0.1);
+  }
+  function connectOut(node, pan){
+    let src = node;
+    if (ctx.createStereoPanner){ const p = ctx.createStereoPanner(); p.pan.value = pan; node.connect(p); src = p; }
+    src.connect(dry); src.connect(wet);
+  }
+
+  // --- human voices ---
+  const SPREAD = [{s:1, off:0, lv:1}, {s:1.04, off:5, lv:0.9}, {s:0.965, off:-4, lv:0.95}, {s:1.07, off:7, lv:0.85}];
+  function setVowel(v, now){
+    const vw = VOWELS[S.vowel]; if (vw.organ) return;
+    const s = v.scale * TIMBRES[S.timbre].s, t = ctx.currentTime, tc = now ? 0.001 : 0.08;
+    vw.f.forEach(([F, B, db], k) => {
+      const [bp, g] = v.fl[k], Fs = F * s;
+      bp.frequency.setTargetAtTime(Fs, t, tc); bp.Q.setTargetAtTime(Fs / B, t, tc);
+      g.gain.setTargetAtTime(Math.pow(10, db / 20) * vw.trim, t, tc);
+    });
+    v.lp.frequency.setTargetAtTime(vw.lp, t, tc);
+  }
+  function makeVoice(i, n, f0){
+    const sp = SPREAD[i];
+    const node = new AudioWorkletNode(ctx, "singer", {numberOfInputs: 0, outputChannelCount: [1],
+      processorOptions: Object.assign({f0: f0 * Math.pow(2, -30 / 1200), off: n > 1 ? sp.off : 0}, life())});
+    const sum = ctx.createGain(), fl = [];
+    for (let k = 0; k < 5; k++){
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
+      const g = ctx.createGain(); node.connect(bp); bp.connect(g); g.connect(sum); fl.push([bp, g]);
+    }
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 0.7;
+    const vg = ctx.createGain(); vg.gain.value = 0;
+    sum.connect(lp); lp.connect(vg);
+    connectOut(vg, n > 1 ? (-0.6 + 1.2 * i / (n - 1)) : 0);
+    const v = {node, fl, lp, vg, scale: n > 1 ? sp.s : 1, level: sp.lv / Math.sqrt(n), breathing: false};
+    setVowel(v, true);
+    node.port.postMessage({f0, glide: 0.22});                       // natural scoop into the note
+    return v;
+  }
+  function buildVoices(){
+    const f0 = freqOf(S.note);
+    dropVoices(0.4);
+    for (let i = 0; i < S.voices; i++){
+      const v = makeVoice(i, S.voices, f0), t = ctx.currentTime + i * 0.07 + Math.random() * 0.05;
+      v.vg.gain.setValueAtTime(0, t); v.vg.gain.linearRampToValueAtTime(v.level, t + 0.35);
+      voices.push(v);
+    }
+    scheduleBreath();
+  }
+  function dropVoices(dur){
+    clearTimeout(breathTimer);
+    const t = ctx.currentTime;
+    voices.forEach(v => {
+      v.vg.gain.cancelScheduledValues(t); v.vg.gain.setValueAtTime(v.vg.gain.value, t);
+      v.vg.gain.linearRampToValueAtTime(0, t + dur);
+      setTimeout(() => { try { v.node.port.postMessage({stop: 1}); v.vg.disconnect(); } catch(e){} }, (dur + 0.2) * 1000);
+    });
+    voices = [];
+  }
+  // With 2+ chanters, one at a time stops briefly to breathe and comes back in — the ison never breaks.
+  function scheduleBreath(){
+    clearTimeout(breathTimer);
+    if (voices.length < 2) return;
+    breathTimer = setTimeout(() => {
+      if (!playing || voices.length < 2) return;
+      const free = voices.filter(v => !v.breathing), v = free[Math.floor(Math.random() * free.length)];
+      if (v){
+        v.breathing = true;
+        const t = ctx.currentTime, out = 0.25, gap = 0.45 + Math.random() * 0.5;
+        v.vg.gain.cancelScheduledValues(t); v.vg.gain.setValueAtTime(v.vg.gain.value, t);
+        v.vg.gain.linearRampToValueAtTime(0, t + out);
+        setTimeout(() => {
+          if (!voices.includes(v)) return;
+          const f0 = freqOf(S.note);
+          v.node.port.postMessage({f0: f0 * Math.pow(2, -30 / 1200), glide: 0.005});
+          setTimeout(() => v.node.port.postMessage({f0: freqOf(S.note), glide: 0.2}), 25);
+          const t2 = ctx.currentTime;
+          v.vg.gain.setValueAtTime(0, t2); v.vg.gain.linearRampToValueAtTime(v.level, t2 + 0.3);
+          v.breathing = false;
+        }, (out + gap) * 1000);
+      }
+      scheduleBreath();
+    }, (15000 + Math.random() * 10000) / voices.length);
+  }
+
+  // --- organ (also the fallback if the voice engine cannot load) ---
+  function organWave(){
+    const N = 9, real = new Float32Array(N), imag = new Float32Array(N);
+    [0, 1, .45, .22, .18, .06, .08, 0, .05].forEach((a, k) => imag[k] = a);
+    return ctx.createPeriodicWave(real, imag);
+  }
+  function organSet(f0){
+    const out = ctx.createGain(); out.gain.value = 0; connectOut(out, 0);
+    const wave = organWave(), nodes = [], n = S.voices;
+    for (let i = 0; i < n; i++){
+      const osc = ctx.createOscillator(); osc.setPeriodicWave(wave);
+      osc.frequency.value = f0; osc.detune.value = n > 1 ? DETUNES[i] : 0;
+      const g = ctx.createGain(); g.gain.value = 0.5 / Math.sqrt(n);
+      osc.connect(g); g.connect(out); osc.start(); nodes.push(osc);
+    }
+    return {out, nodes};
+  }
+  function organOff(dur){
+    if (!organ) return;
+    const set = organ, t = ctx.currentTime; organ = null;
+    set.out.gain.cancelScheduledValues(t); set.out.gain.setValueAtTime(set.out.gain.value, t);
+    set.out.gain.linearRampToValueAtTime(0, t + dur);
+    set.nodes.forEach(o => { try { o.stop(t + dur + 0.05); } catch(e){} });
+    setTimeout(() => { try { set.out.disconnect(); } catch(e){} }, (dur + 0.2) * 1000);
+  }
+  function organOn(attack){
+    const set = organSet(freqOf(S.note)), t = ctx.currentTime;
+    set.out.gain.setValueAtTime(0, t); set.out.gain.linearRampToValueAtTime(1, t + attack);
+    organOff(Math.max(0.12, attack * 0.9)); organ = set;
+  }
+
+  // --- recorded choir (real singers; sustained notes from free GM soundfonts, re-pitched) ---
+  // Measured pitch [Hz] and loudness trim of every sample, by set and MIDI note.
+  const SAMPLES = {"fa-choir":{"21":[27.294,9.88],"23":[30.645,9.68],"25":[34.403,9.3],"27":[38.635,9.31],"29":[43.365,9.41],"31":[48.666,9.28],"33":[54.613,9.39],"35":[61.312,9.19],"37":[68.806,9.28],"39":[77.192,9.3],"41":[86.716,9.21],"43":[97.981,7.03],"45":[110.003,6.97],"47":[122.471,7.35],"49":[137.344,7.31],"51":[153.034,8.05],"53":[173.108,8.4],"55":[194.356,8.54],"57":[217.997,8.5],"59":[246.503,8.54],"61":[276.724,8.71],"63":[310.792,7.74],"65":[345.553,6.7],"67":[387.884,6.62],"69":[442.551,6.89],"71":[497.694,6.54],"73":[558.647,6.58],"75":[622.764,5.95],"77":[697.766,6.99],"79":[783.872,7.07],"81":[875.998,6.15],"83":[983.231,6.19]},"fa-voice":{"21":[27.486,6.78],"23":[30.928,6.99],"25":[34.675,6.71],"27":[38.924,6.07],"29":[43.708,5.89],"31":[49.027,5.94],"33":[55.081,5.8],"35":[61.786,5.81],"37":[69.342,5.9],"39":[77.847,5.95],"41":[87.386,5.88],"43":[98.096,5.83],"45":[110.062,5.9],"47":[123.554,5.85],"49":[138.683,5.87],"51":[155.459,6.6],"53":[174.343,6.3],"55":[195.697,6.54],"57":[219.368,6.11],"59":[246.539,8.49],"61":[277.156,7.72],"63":[311.224,5.81],"65":[349.937,4.94],"67":[392.465,4.45],"69":[439.448,5.16],"71":[494.005,4.82],"73":[553.106,4.53],"75":[620.899,4.38],"77":[697.546,4.41],"79":[782.725,4.01],"81":[878.748,3.98],"83":[986.214,3.98]},"fl-choir":{"21":[26.915,6.11],"23":[30.204,6.05],"25":[33.836,6.17],"27":[37.951,6.07],"29":[42.607,6.15],"31":[47.816,6.09],"33":[53.711,6.07],"35":[60.272,6.11],"37":[67.566,6.14],"39":[75.938,6.12],"41":[86.296,6.11],"43":[97.387,4.86],"45":[109.405,4.92],"47":[122.201,4.69],"49":[135.594,4.99],"51":[152.174,4.96],"53":[171.94,4.81],"55":[192.385,6.57],"57":[215.901,6.5],"59":[245.124,5.0],"61":[273.681,6.57],"63":[307.313,6.66],"65":[346.982,5.45],"67":[393.858,4.89],"69":[442.237,4.76],"71":[494.196,4.91],"73":[545.891,4.23],"75":[612.69,4.25],"77":[696.657,4.53],"79":[779.107,3.87],"81":[874.437,3.85],"83":[981.619,3.82]},"fl-voice":{"21":[27.549,5.18],"23":[30.908,5.21],"25":[34.664,5.25],"27":[38.928,5.35],"29":[43.705,5.4],"31":[49.098,5.45],"33":[55.105,5.48],"35":[61.833,5.51],"37":[69.442,5.54],"39":[77.899,5.61],"41":[87.458,5.66],"43":[98.123,5.7],"45":[110.133,5.77],"47":[123.588,5.82],"49":[138.634,5.88],"51":[155.64,5.93],"53":[174.673,5.98],"55":[195.976,4.86],"57":[220.057,4.9],"59":[246.967,4.92],"61":[277.286,4.67],"63":[311.249,4.72],"65":[349.39,4.73],"67":[392.232,4.61],"69":[440.269,4.66],"71":[494.122,4.65],"73":[554.57,4.52],"75":[622.464,4.55],"77":[698.7,4.59],"79":[784.354,4.52],"81":[880.36,4.57],"83":[988.154,4.62]},"mu-choir":{"21":[26.959,10.14],"23":[30.274,10.11],"25":[33.987,10.02],"27":[38.142,9.99],"29":[42.82,10.01],"31":[47.987,9.88],"33":[53.941,9.95],"35":[60.436,10.01],"37":[67.834,10.12],"39":[76.205,10.1],"41":[86.524,9.91],"43":[97.571,8.85],"45":[109.523,8.96],"47":[122.045,7.39],"49":[136.269,9.08],"51":[153.46,7.68],"53":[173.558,7.77],"55":[194.099,8.5],"57":[217.705,9.36],"59":[245.775,8.74],"61":[276.599,8.5],"63":[309.824,8.2],"65":[347.549,8.63],"67":[390.61,7.47],"69":[438.283,7.02],"71":[493.994,7.65],"73":[551.465,7.38],"75":[617.248,7.62],"77":[695.249,7.22],"79":[776.364,6.79],"81":[871.377,6.6],"83":[978.348,6.69]},"mu-voice":{"21":[27.403,20.96],"23":[30.807,21.44],"25":[34.572,21.9],"27":[38.834,22.19],"29":[43.591,22.72],"31":[48.961,23.28],"33":[54.927,23.52],"35":[61.647,23.25],"37":[69.23,22.34],"39":[77.739,21.83],"41":[87.264,21.5],"43":[97.936,22.19],"45":[109.941,23.07],"47":[123.449,23.58],"49":[138.57,23.6],"51":[155.679,23.64],"53":[174.748,24.72],"55":[195.81,8.57],"57":[219.77,8.49],"59":[247.113,6.66],"61":[277.327,6.75],"63":[311.353,6.29],"65":[349.697,6.09],"67":[392.507,5.93],"69":[440.541,5.89],"71":[494.446,5.7],"73":[554.918,5.61],"75":[622.946,5.6],"77":[699.265,5.7],"79":[784.893,5.85],"81":[880.974,5.93],"83":[988.831,5.84]}};
+  const SETS = {A: ["fl-choir", "mu-choir", "fa-choir"], U: ["fl-voice", "fa-voice", "mu-voice"], M: ["fl-voice", "fa-voice", "mu-voice"]};
+  const LAYER_PAN = [0, -0.45, 0.45], LAYER_OFF = [0, 5, -4], LAYER_LV = [1, 0.85, 0.85];
+  const SAMPLE_DUR = 3.1, XF = 0.7;
+  const bufs = new Map();
+  let sampleFail = false, layers = [], sched = null;
+
+  function pickSample(set, hz){
+    let best = null, bd = 1e9;
+    for (const [m, [f0, gain]] of Object.entries(SAMPLES[set])){
+      const d = Math.abs(Math.log(hz / f0));
+      if (d < bd){ bd = d; best = {key: set + "/" + m, f0, gain}; }
+    }
+    return best;
+  }
+  function loadBuf(key){
+    if (!bufs.has(key)){
+      bufs.set(key, fetch("voice/" + key + ".mp3")
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(a => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no))));
+      bufs.get(key).catch(() => bufs.delete(key));
+    }
+    return bufs.get(key);
+  }
+  const layerSets = () => SETS[S.vowel].slice(0, Math.min(3, S.voices));
+  async function preload(){
+    const sets = layerSets(), hz = freqOf(S.note);
+    await Promise.all(sets.map(set => loadBuf(pickSample(set, hz).key)));
+  }
+  function preloadPad(){            // warm up every φθόγγος of this ήχος in the background
+    layerSets().forEach(set => NOTES.forEach(n => { const p = pickSample(set, freqOf(n.id)); if (p) loadBuf(p.key).catch(() => {}); }));
+  }
+
+  function makeLayer(i, set){
+    const out = ctx.createGain(); out.gain.value = 0;
+    const tone = ctx.createBiquadFilter(); tone.type = "lowpass"; tone.Q.value = 0.5;
+    out.connect(tone); connectOut(tone, layerSets().length > 1 ? LAYER_PAN[i] : 0);
+    const L = {i, set, out, tone, grains: [], next: 0, drift: 0, level: LAYER_LV[i] / Math.sqrt(layerSets().length), breathing: false};
+    setTone(L, true);
+    return L;
+  }
+  function setTone(L, now){
+    const m = S.vowel === "M", t = ctx.currentTime;
+    L.tone.frequency.setTargetAtTime(m ? 620 : 16000, t, now ? 0.001 : 0.1);
+    L.trim = m ? 2.2 : 1;
+  }
+  const cents = L => LAYER_OFF[L.i] * (layers.length > 1 ? 1 : 0) + L.drift;
+
+  // One grain = a stretch of the recording with crossfaded edges; grains from random
+  // points overlap end-to-end so the note sustains forever with no audible loop.
+  async function startGrain(L, when, fadeIn){
+    const hz = freqOf(S.note), p = pickSample(L.set, hz);
+    let buf; try { buf = await loadBuf(p.key); } catch(e){ return; }
+    if (!playing || !layers.includes(L)) return;
+    when = Math.max(when, ctx.currentTime + 0.01);
+    const rate = hz / p.f0;
+    const len = Math.min(2.4, (SAMPLE_DUR - 0.45) / rate);
+    const off = 0.3 + Math.random() * Math.max(0, SAMPLE_DUR - 0.15 - len * rate - 0.3);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    src.playbackRate.value = rate; src.detune.value = cents(L);
+    const g = ctx.createGain(); g.gain.value = 0;
+    const amp = p.gain * L.trim * 1.5, fi = fadeIn || XF;
+    const curve = n => Float32Array.from({length: 16}, (_, k) => amp * Math.sin((n ? k : 15 - k) / 15 * Math.PI / 2));
+    g.gain.setValueCurveAtTime(curve(1), when, fi);
+    g.gain.setValueCurveAtTime(curve(0), when + len - XF, XF);
+    src.connect(g); g.connect(L.out);
+    src.start(when, off, len * rate + 0.05); src.stop(when + len + 0.05);
+    const G = {src, g, f0: p.f0, end: when + len};
+    L.grains.push(G);
+    src.onended = () => { L.grains = L.grains.filter(x => x !== G); try { g.disconnect(); } catch(e){} };
+    L.next = when + len - XF;
+  }
+  function tick(){
+    if (!playing) return;
+    const t = ctx.currentTime, amt = 0.6 + S.vib * 0.5;
+    layers.forEach(L => {
+      L.drift += -L.drift * 0.15 + amt * 0.35 * (Math.random() * 2 - 1);       // slow natural pitch wander
+      L.grains.forEach(G => G.src.detune.setTargetAtTime(cents(L), t, 0.3));
+      if (!L.pending && L.next < t + 0.6){ L.pending = true; startGrain(L, L.next, 0).finally(() => L.pending = false); }
+    });
+  }
+  function buildLayers(){
+    dropLayers(0.4);
+    layers = layerSets().map((set, i) => makeLayer(i, set));
+    const t = ctx.currentTime;
+    layers.forEach((L, i) => {
+      const s = t + 0.03 + i * 0.08 + Math.random() * 0.05;
+      L.out.gain.setValueAtTime(0, s); L.out.gain.linearRampToValueAtTime(L.level, s + 0.4);
+      L.next = s; L.pending = true; startGrain(L, s, 0.35).finally(() => L.pending = false);
+    });
+    clearInterval(sched); sched = setInterval(tick, 150);
+    scheduleSampleBreath();
+    preloadPad();
+  }
+  function dropLayers(dur){
+    clearTimeout(breathTimer);
+    const t = ctx.currentTime;
+    layers.forEach(L => {
+      L.out.gain.cancelScheduledValues(t); L.out.gain.setValueAtTime(L.out.gain.value, t);
+      L.out.gain.linearRampToValueAtTime(0, t + dur);
+      L.grains.forEach(G => { try { G.src.stop(t + dur + 0.05); } catch(e){} });
+      setTimeout(() => { try { L.tone.disconnect(); } catch(e){} }, (dur + 0.3) * 1000);
+    });
+    layers = [];
+    if (!playing) clearInterval(sched);
+  }
+  async function retuneLayers(){
+    const hz = freqOf(S.note);
+    try { await preload(); } catch(e){}
+    if (!playing) return;
+    layers.forEach((L, i) => {
+      const t = ctx.currentTime + (i ? Math.random() * 0.08 : 0), glide = 0.04 + Math.random() * 0.03;
+      L.grains.forEach(G => {                 // old grains slide to the new pitch while they fade out
+        G.src.playbackRate.cancelScheduledValues(t);
+        G.src.playbackRate.setTargetAtTime(hz / G.f0, t, glide);
+        G.g.gain.cancelScheduledValues(t); G.g.gain.setValueAtTime(G.g.gain.value, t);
+        G.g.gain.linearRampToValueAtTime(0, t + 0.45);
+        try { G.src.stop(t + 0.5); } catch(e){}
+      });
+      L.pending = true; startGrain(L, t + 0.05, 0.35).finally(() => L.pending = false);
+    });
+    preloadPad();
+  }
+  function scheduleSampleBreath(){
+    clearTimeout(breathTimer);
+    if (layers.length < 2) return;
+    breathTimer = setTimeout(() => {
+      if (!playing || layers.length < 2) return;
+      const free = layers.filter(L => !L.breathing), L = free[Math.floor(Math.random() * free.length)];
+      if (L){
+        L.breathing = true;
+        const t = ctx.currentTime, gap = 0.5 + Math.random() * 0.5;
+        L.out.gain.cancelScheduledValues(t); L.out.gain.setValueAtTime(L.out.gain.value, t);
+        L.out.gain.linearRampToValueAtTime(0, t + 0.3);
+        L.out.gain.setValueAtTime(0, t + 0.3 + gap);
+        L.out.gain.linearRampToValueAtTime(L.level, t + 0.3 + gap + 0.35);
+        setTimeout(() => L.breathing = false, (0.7 + gap) * 1000);
+      }
+      scheduleSampleBreath();
+    }, (16000 + Math.random() * 10000) / layers.length);
+  }
+
+  // --- engine choice & reactions to changes ---
+  const mode = () => VOWELS[S.vowel].organ ? "organ" : !sampleFail ? "sample" : workletOK ? "synth" : "organ";
+  function silenceOthers(keep){
+    if (keep !== "sample" && layers.length) dropLayers(0.3);
+    if (keep !== "synth" && voices.length) dropVoices(0.3);
+    if (keep !== "organ") organOff(0.3);
+  }
+  async function engage(){                   // (re)start whatever the current settings call for
+    let m = mode();
+    if (m === "sample"){
+      $("nowMeta").textContent = "Φόρτωση φωνών…";
+      try { await preload(); } catch(e){ sampleFail = true; m = mode(); render(); }
+      if (!playing) return;
+    }
+    silenceOthers(m);
+    if (m === "sample") buildLayers();
+    else if (m === "synth") buildVoices();
+    else organOn(0.3);
+    render();
+  }
+  function retune(){
+    if (!playing) return;
+    const m = mode();
+    if (m === "sample" && layers.length) retuneLayers();
+    else if (m === "synth" && voices.length){
+      const f0 = freqOf(S.note);
+      voices.forEach((v, i) => setTimeout(() => v.node.port.postMessage({f0, glide: 0.06 + Math.random() * 0.09}), i ? Math.random() * 90 : 0));
+    } else if (m === "organ" && organ) organOn(0.15);
+    else engage();
+  }
+  function revoice(){                        // vowel or timbre changed
+    if (!playing) return;
+    const m = mode();
+    if (m === "synth" && voices.length) voices.forEach(v => setVowel(v, false));
+    else engage();
+  }
+  function rebuild(){ if (playing) engage(); }   // number of chanters changed
+  function relive(){ voices.forEach(v => v.node.port.postMessage(life())); }
+
+  async function start(){
+    await ensureCtx();
+    if (ctx.state !== "running") await ctx.resume();
+    playing = true; render();
+    await engage();
+    requestWake();
+  }
+  function stop(){
+    playing = false;
+    if (ctx){ dropLayers(0.6); dropVoices(0.6); organOff(0.5); }
+    clearInterval(sched);
+    releaseWake(); render();
+  }
+  async function requestWake(){
+    try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch(e){ wakeLock = null; }
+  }
+  function releaseWake(){ try { wakeLock && wakeLock.release(); } catch(e){} wakeLock = null; }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && playing){ requestWake(); if (ctx && ctx.state !== "running") ctx.resume(); }
+  });
+
+  // ---------- UI ----------
+  function build(){
+    $("echoi").innerHTML = ECHOI.map(e => `<button class="echos" data-e="${e.id}" aria-pressed="false">${e.n}<small>${e.s}</small></button>`).join("");
+    $("pad").innerHTML = NOTES.map(n => `<button class="note" data-n="${n.id}" aria-pressed="false" aria-label="${n.name} ${n.oct}">${n.name}<span class="oct">${n.oct ? n.oct.toUpperCase() : "&nbsp;"}</span><span class="alt"></span></button>`).join("");
+    $("alts").innerHTML = ALTS.map(a => `<button data-a="${a}" aria-pressed="false" aria-label="${a<0?"ύφεση":a>0?"δίεση":"φυσικό"} ${Math.abs(a)} μόρια">${a>0?"+"+a:a===0?"0":"−"+(-a)}</button>`).join("");
+    let opts = "";
+    for (let m = TONIC_MAX; m >= TONIC_MIN; m--) opts += `<option value="${m}">${midiName(m)} · ${midiHz(m).toFixed(1).replace(".", ",")} Hz</option>`;
+    $("tonic").innerHTML = opts;
+    $("vowel").innerHTML = Object.entries(VOWELS).map(([k,v]) => `<button data-v="${k}" aria-pressed="false">${v.label}</button>`).join("");
+    $("timbre").innerHTML = Object.entries(TIMBRES).map(([k,v]) => `<button data-t="${k}" aria-pressed="false">${v.label}</button>`).join("");
+    $("voices").innerHTML = [1,2,3].map(n => `<button data-c="${n}" aria-pressed="false">${n}</button>`).join("");
+  }
+  function render(){
+    const e = ECHOI.find(x => x.id === S.echos);
+    const n = noteBy(S.note);
+    document.querySelectorAll(".echos").forEach(b => b.setAttribute("aria-pressed", b.dataset.e === S.echos));
+    document.querySelectorAll(".note").forEach(b => {
+      const id = b.dataset.n, a = S.alt[id] || 0;
+      b.setAttribute("aria-pressed", id === S.note);
+      b.classList.toggle("base", id === e.base);
+      b.classList.toggle("sug", id === e.base || e.sug.includes(id));
+      b.querySelector(".alt").textContent = a ? (a > 0 ? "+" + a : "−" + (-a)) : "";
+    });
+    const a = S.alt[S.note] || 0;
+    document.querySelectorAll("#alts button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.a === a));
+    const G = GENERA[e.g];
+    $("hint").textContent = `${G.label} · ${e.hint}`;
+    $("tonicLbl").textContent = `Η βάση ${noteBy(e.base).name} πέφτει στο`;
+    $("tonic").value = S.tonic;
+    $("tDown").disabled = S.tonic <= TONIC_MIN; $("tUp").disabled = S.tonic >= TONIC_MAX;
+    const P = G.pos.concat(72);
+    $("scale").innerHTML = DEG.map((d, i) => { const iv = P[i + 1] - P[i];
+      return `<div class="seg-i${i % 2 ? " odd" : ""}" style="flex:${iv} 1 0" title="${d}–${DEG[(i + 1) % 7]} ${iv} μόρια"><b>${d}</b><span>${iv}</span></div>`; }).join("");
+    $("nowNote").textContent = n.name;
+    $("nowAlt").textContent = (n.oct ? n.oct + " " : "") + (a ? (a < 0 ? "ύφεση " + (-a) : "δίεση " + a) + " μόρια" : "");
+    const hz = freqOf(S.note), mm = 69 + 12 * Math.log2(hz / 440), mr = Math.round(mm), ct = Math.round((mm - mr) * 100);
+    $("nowMeta").textContent = `${e.n} ήχος · ${hz.toFixed(1).replace(".", ",")} Hz · ≈ ${midiName(mr)}${ct ? (ct > 0 ? " +" : " −") + Math.abs(ct) + "c" : ""}`;
+    $("fine").value = S.fine; $("fineOut").textContent = (S.fine > 0 ? "+" : "") + S.fine + " cents";
+    $("vib").value = S.vib; $("vibOut").textContent = ["Σταθερή","","","Λίγη","","Μέτρια","","","Πολλή","","Μέγιστη"][S.vib] || S.vib;
+    $("vol").value = S.vol; $("volOut").textContent = S.vol + "%";
+    $("hall").value = S.hall; $("hallOut").textContent = S.hall < 15 ? "Στεγνό" : S.hall < 40 ? "Παρεκκλήσι" : S.hall < 70 ? "Ενοριακός ναός" : "Μητρόπολη";
+    document.querySelectorAll("#timbre button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === S.timbre));
+    $("timbre").closest(".row").hidden = !(sampleFail && !VOWELS[S.vowel].organ);
+    document.querySelectorAll("#vowel button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.vowel));
+    document.querySelectorAll("#voices button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.c === S.voices));
+    $("app").classList.toggle("playing", playing);
+    $("play").setAttribute("aria-label", playing ? "Διακοπή ισοκρατήματος" : "Έναρξη ισοκρατήματος");
+    $("playIcon").innerHTML = playing ? '<path d="M6 5h4.5v14H6zM13.5 5H18v14h-4.5z"/>' : '<path d="M7 4.5v15l13-7.5z"/>';
+    save();
+  }
+  const changed = () => { render(); retune(); };
+
+  build();
+  $("play").onclick = () => playing ? stop() : start();
+  $("echoi").onclick = ev => {
+    const b = ev.target.closest(".echos"); if (!b) return;
+    S.echos = b.dataset.e; S.alt = {};
+    S.note = ECHOI.find(x => x.id === S.echos).base; changed();
+  };
+  $("pad").onclick = ev => {
+    const b = ev.target.closest(".note"); if (!b) return;
+    SMART.overrideUntil = performance.now() + 8000;
+    if (!playing){ S.note = b.dataset.n; render(); start(); return; }
+    if (b.dataset.n === S.note) return;
+    S.note = b.dataset.n; changed();
+  };
+  $("alts").onclick = ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    const a = +b.dataset.a; if (a) S.alt[S.note] = a; else delete S.alt[S.note]; changed();
+  };
+  $("tonic").onchange = e => { S.tonic = +e.target.value; changed(); };
+  $("tDown").onclick = () => { if (S.tonic > TONIC_MIN){ S.tonic--; changed(); } };
+  $("tUp").onclick = () => { if (S.tonic < TONIC_MAX){ S.tonic++; changed(); } };
+  $("fine").oninput = e => { S.fine = +e.target.value; render(); };
+  $("fine").onchange = () => changed();
+  $("vowel").onclick = ev => { const b = ev.target.closest("button"); if (!b) return; S.vowel = b.dataset.v; render(); revoice(); };
+  $("timbre").onclick = ev => { const b = ev.target.closest("button"); if (!b) return; S.timbre = b.dataset.t; render(); revoice(); };
+  $("voices").onclick = ev => { const b = ev.target.closest("button"); if (!b) return; S.voices = +b.dataset.c; render(); rebuild(); };
+  $("vib").oninput = e => { S.vib = +e.target.value; render(); relive(); };
+  $("hall").oninput = e => { S.hall = +e.target.value; render(); setHall(false); };
+  $("vol").oninput = e => {
+    S.vol = +e.target.value; render();
+    if (master) master.gain.setTargetAtTime(volGain(), ctx.currentTime, 0.05);
+  };
+  document.addEventListener("keydown", e => {
+    if (e.code === "Space" && !/INPUT|SELECT|BUTTON/.test(document.activeElement.tagName)){ e.preventDefault(); playing ? stop() : start(); }
+  });
+
+  // ---------- Listening: find the base from the chanter's own voice ----------
+  // YIN pitch estimate on one frame (x at rate sr); returns Hz or 0 when unvoiced.
+  function yin(x, sr, lo = 55, hi = 520){
+    const W = Math.floor(x.length / 2), tMin = Math.floor(sr / hi), tMax = Math.min(W - 1, Math.floor(sr / lo));
+    let e = 0; for (let i = 0; i < x.length; i++) e += x[i] * x[i];
+    if (Math.sqrt(e / x.length) < 0.01) return 0;
+    const d = new Float32Array(tMax + 2);
+    for (let t = 1; t <= tMax + 1; t++){ let s = 0; for (let i = 0; i < W; i++){ const v = x[i] - x[i + t]; s += v * v; } d[t] = s; }
+    let run = 0, best = -1;
+    for (let t = 1; t <= tMax + 1; t++){ run += d[t]; d[t] = d[t] * t / (run || 1); }
+    for (let t = tMin; t <= tMax; t++){ if (d[t] < 0.15){ while (t + 1 <= tMax && d[t + 1] < d[t]) t++; best = t; break; } }
+    if (best < 0) return 0;
+    const a = d[best - 1], b = d[best], c = d[best + 1], den = a - 2 * b + c;
+    return sr / (best + (den ? 0.5 * (a - c) / den : 0));
+  }
+  function decimate(data, sr, target = 8000){
+    const k = Math.max(1, Math.floor(sr / target)), out = new Float32Array(Math.floor(data.length / k));
+    for (let i = 0; i < out.length; i++){ let s = 0; for (let j = 0; j < k; j++) s += data[i * k + j]; out[i] = s / k; }
+    return {x: out, sr: sr / k};
+  }
+  // Pitch track → stable notes (held ≥ 0.3 s within ±35 cents)
+  function findNotes(data, srIn){
+    const {x, sr} = decimate(data, srIn), win = Math.floor(sr * 0.05), hop = Math.floor(sr * 0.02);
+    const track = [];
+    for (let i = 0; i + win <= x.length; i += hop) track.push(yin(x.subarray(i, i + win), sr));
+    const notes = []; let cur = null;
+    const close = () => { if (cur && cur.n * 0.02 >= 0.3){ cur.hz = Math.pow(2, cur.logs.sort((a, b) => a - b)[cur.logs.length >> 1]); notes.push(cur); } cur = null; };
+    track.forEach((hz, i) => {
+      if (!hz){ if (cur && ++cur.gap > 3) close(); return; }
+      const l = Math.log2(hz);
+      if (cur && Math.abs(l - cur.ref) < 35 / 1200){ cur.logs.push(l); cur.n++; cur.gap = 0; cur.ref = cur.ref * 0.9 + l * 0.1; }
+      else { close(); cur = {logs: [l], n: 1, gap: 0, ref: l, t: i * 0.02}; }
+    });
+    close();
+    notes.forEach(n => { n.dur = n.n * 0.02; delete n.logs; });
+    return notes;
+  }
+  function chooseBase(notes){
+    if (!notes.length) return null;
+    const longs = notes.filter(n => n.dur >= 0.5);
+    return (longs.length ? longs : notes)[(longs.length ? longs : notes).length - 1];   // where the chant comes to rest
+  }
+  function applyBase(hz){
+    let m = 69 + 12 * Math.log2(hz / 440);
+    while (m > TONIC_MAX + 0.5) m -= 12;
+    while (m < TONIC_MIN - 0.5) m += 12;
+    S.tonic = Math.round(m); S.fine = Math.round((m - S.tonic) * 100);
+    S.alt = {}; S.note = echos().base;
+    changed();
+  }
+  function showFound(notes, base){
+    const box = $("found"), e = echos();
+    if (!base){ box.hidden = true; return; }
+    const toName = hz => { const m = 69 + 12 * Math.log2(hz / 440), r = Math.round(m), c = Math.round((m - r) * 100); return midiName(r) + (c ? (c > 0 ? " +" : " −") + Math.abs(c) : ""); };
+    box.innerHTML = `<span>Άκουσα:</span>` + notes.slice(-8).map(n => `<span class="chip${n === base ? " base" : ""}">${toName(n.hz)}</span>`).join("") +
+      `<span>→ βάση ${noteBy(e.base).name} = <b>${toName(base.hz)}</b></span>`;
+    box.hidden = false;
+  }
+
+  let mic = null;
+  async function listenLive(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("no-mic");
+    const stream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: false, autoGainControl: true}}),
+      new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 4000))]);
+    await ensureCtx(); if (ctx.state !== "running") await ctx.resume();
+    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 4096; src.connect(an);
+    const chunks = [], buf = new Float32Array(an.fftSize), sr = ctx.sampleRate;
+    let last = 0;
+    mic = {stream, timer: setInterval(() => {
+      an.getFloatTimeDomainData(buf);
+      const hop = Math.floor(sr * 0.1); chunks.push(buf.slice(buf.length - hop));
+      const d = decimate(buf, sr), hz = yin(d.x.subarray(d.x.length - Math.floor(d.sr * 0.06)), d.sr);
+      if (hz){ const m = 69 + 12 * Math.log2(hz / 440), r = Math.round(m), c = Math.round((m - r) * 100);
+        $("listenSt").innerHTML = `<span class="live">${midiName(r)}</span> ${c > 0 ? "+" : c < 0 ? "−" : ""}${c ? Math.abs(c) + " cents" : ""} · πατήστε «Τέλος» όταν καταλήξετε στη βάση`; last = Date.now(); }
+      else if (Date.now() - last > 1500) $("listenSt").textContent = "Ακούω… ψάλτε το απήχημα ή κρατήστε τη βάση.";
+    }, 100), chunks, sr};
+    $("listen").classList.add("on"); $("listenTxt").textContent = "Τέλος";
+  }
+  function stopLive(){
+    const m = mic; mic = null;
+    clearInterval(m.timer); m.stream.getTracks().forEach(t => t.stop());
+    $("listen").classList.remove("on"); $("listenTxt").textContent = "Άκουσέ με και βρες τη βάση";
+    const all = new Float32Array(m.chunks.reduce((a, c) => a + c.length, 0)); let o = 0;
+    m.chunks.forEach(c => { all.set(c, o); o += c.length; });
+    finish(findNotes(all, m.sr));
+  }
+  function finish(notes){
+    const base = chooseBase(notes);
+    showFound(notes, base);
+    if (!base){ $("listenSt").textContent = "Δεν έπιασα καθαρή νότα. Δοκιμάστε ξανά πιο κοντά στο κινητό, κρατώντας τη βάση 2–3 δευτερόλεπτα."; return; }
+    applyBase(base.hz);
+    $("listenSt").textContent = `Η τονικότητα ορίστηκε από τη φωνή σας${S.fine ? ` (με λεπτό κούρδισμα ${S.fine > 0 ? "+" : ""}${S.fine} cents)` : ""}. Αν θέλετε, διορθώστε με − / +.`;
+  }
+  $("listen").onclick = async () => {
+    if (mic) return stopLive();
+    try { await listenLive(); }
+    catch(e){ $("rec").value = ""; $("rec").click(); $("listenSt").textContent = "Ηχογραφήστε στο κινητό το απήχημα ή τη βάση και επιλέξτε το αρχείο."; }
+  };
+  $("rec").onchange = async ev => {
+    const f = ev.target.files && ev.target.files[0]; if (!f) return;
+    $("listenSt").textContent = "Αναλύω την ηχογράφηση…";
+    try {
+      const ab = await f.arrayBuffer();
+      const dc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
+      const audio = await new Promise((ok, no) => dc.decodeAudioData(ab, ok, no));
+      const ch = audio.getChannelData(0), maxLen = Math.min(ch.length, audio.sampleRate * 60);
+      finish(findNotes(ch.subarray(0, maxLen), audio.sampleRate));
+    } catch(e){ $("listenSt").textContent = "Δεν μπόρεσα να διαβάσω αυτό το αρχείο ήχου. Δοκιμάστε άλλη ηχογράφηση (π.χ. m4a, mp3, wav)."; }
+  };
+
+  // ---------- Smart ison: listens live, follows the chanter's tuning, picks the ison ----------
+  const SITE_URL = "https://kgxanthopoulos-lang.github.io/isokratis/";
+  const SMART = {on: false, overrideUntil: 0, hist: [], held: null, prop: null, propSince: 0, lastVoiced: 0, lastSwitch: 0, lastHz: 0};
+  const idx = id => NOTES.findIndex(n => n.id === id);
+  function glideAll(sec){                       // small retune without restarting the voices
+    if (!ctx || !playing) return;
+    const t = ctx.currentTime, hz = freqOf(S.note);
+    layers.forEach(L => L.grains.forEach(G => G.src.playbackRate.setTargetAtTime(hz / G.f0, t, sec / 3)));
+    voices.forEach(v => v.node.port.postMessage({f0: hz, glide: sec}));
+    if (organ) organ.nodes.forEach(o => o.frequency.setTargetAtTime(hz, t, sec / 3));
+  }
+  function nudge(c){
+    S.fine += c;
+    while (S.fine > 50 && S.tonic < TONIC_MAX){ S.fine -= 100; S.tonic++; }
+    while (S.fine < -50 && S.tonic > TONIC_MIN){ S.fine += 100; S.tonic--; }
+    S.fine = Math.round(Math.max(-50, Math.min(50, S.fine)) * 10) / 10;
+    render(); glideAll(0.8);
+  }
+  function nearest(hz){
+    let best = null;
+    NOTES.forEach((n, i) => { const c = 1200 * Math.log2(hz / freqOf(n.id)); if (!best || Math.abs(c) < Math.abs(best.c)) best = {i, c}; });
+    return best;
+  }
+  function smartStatus(txt){ const p = $("smartSt"); p.innerHTML = txt; p.hidden = false; }
+  function smartFrame(hz){
+    const t = performance.now(), e = echos(), cur = idx(S.note), baseI = idx(e.base);
+    if (hz){
+      const top = freqOf("Pa2") * 1.06, bot = freqOf("Ni_") / 1.06;
+      while (hz > top) hz /= 2;
+      while (hz < bot) hz *= 2;
+      const r = ((1200 * Math.log2(hz / freqOf(S.note))) % 1200 + 1200) % 1200;
+      if (r < 20 || r > 1180){                                        // unison with the ison (or the ison itself): counts for the ison, never for tuning
+        SMART.lastVoiced = t; SMART.held = null;
+        SMART.hist.push({t, i: cur}); SMART.hist = SMART.hist.filter(h => t - h.t < 2500);
+        return;
+      }
+      SMART.lastVoiced = t;
+      const nn = nearest(hz);
+      SMART.hist.push({t, i: nn.i});
+      if (SMART.held && Math.abs(1200 * Math.log2(hz / SMART.held.hz)) < 40){ SMART.held.n++; SMART.held.hz = SMART.held.hz * 0.8 + hz * 0.2; }
+      else SMART.held = {hz, n: 1, i: nn.i};
+      // Follow the chanter's pitch: only on held "pillar" notes of the ήχος (base and usual ison notes), never on altered ones.
+      if (SMART.held.n === 10){
+        const id = NOTES[SMART.held.i].id, pillars = [e.base, ...e.sug].map(x => x.replace("_", "").replace("2", ""));
+        const c = 1200 * Math.log2(SMART.held.hz / freqOf(id));
+        if (pillars.includes(id.replace("_", "").replace("2", "")) && !S.alt[id] && Math.abs(c) > 5 && Math.abs(c) < 40) nudge(c * 0.35);
+      }
+      const n = NOTES[nn.i];
+      smartStatus(`Ψάλλετε <b>${n.name}${n.oct ? " " + n.oct : ""}</b> ${nn.c >= 0 ? "+" : "−"}${Math.abs(Math.round(nn.c))}c · ίσον <b>${NOTES[cur].name}</b>${S.fine ? ` · κούρδισμα ${S.fine > 0 ? "+" : ""}${Math.round(S.fine)}c` : ""}`);
+    } else if (t - SMART.lastVoiced > 400) SMART.held = null;
+    SMART.hist = SMART.hist.filter(h => t - h.t < 2500);
+    if (t < SMART.overrideUntil) return;
+    // Long rest after the chant: return to the base.
+    if (!hz && t - SMART.lastVoiced > 2000 && SMART.lastVoiced && cur !== baseI && t - SMART.lastSwitch > 2500){
+      S.note = e.base; SMART.lastSwitch = t; SMART.prop = null; changed(); return;
+    }
+    if (SMART.hist.length < 15) return;                         // need ~0.75 s of singing to judge
+    const ds = SMART.hist.map(h => h.i).sort((a, b) => a - b);
+    const low = ds[Math.floor(ds.length * 0.2)], med = ds[ds.length >> 1];
+    const cand = [...new Set([e.base, ...e.sug])].map(idx).filter(i => i >= 0).sort((a, b) => a - b);
+    let pick;
+    if (low >= baseI && low <= baseI + 2) pick = baseI;         // melody still touches the base's own tetrachord
+    else { const below = cand.filter(c => c <= low); pick = below.length ? below[below.length - 1] : cand[0]; }
+    if (pick === cur){ SMART.prop = null; return; }
+    if (SMART.prop !== pick){ SMART.prop = pick; SMART.propSince = t; return; }
+    const settled = !hz || (SMART.held && SMART.held.n >= 6);
+    if (t - SMART.propSince >= 1200 && t - SMART.lastSwitch > 2500 && settled){
+      S.note = NOTES[pick].id; SMART.lastSwitch = t; SMART.prop = null; changed();
+    }
+  }
+  let smartMic = null;
+  async function smartOn(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("no-mic");
+    const stream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: false, autoGainControl: true}}),
+      new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 8000))]);
+    await ensureCtx(); if (ctx.state !== "running") await ctx.resume();
+    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 2048; src.connect(an);
+    const buf = new Float32Array(an.fftSize);
+    smartMic = {stream, timer: setInterval(() => {
+      an.getFloatTimeDomainData(buf);
+      const d = decimate(buf, ctx.sampleRate);
+      smartFrame(yin(d.x, d.sr, 60, 700));
+    }, 50)};
+    Object.assign(SMART, {on: true, hist: [], held: null, prop: null, lastVoiced: 0, lastSwitch: performance.now()});
+    $("smart").setAttribute("aria-pressed", "true");
+    smartStatus("Ακούω… ξεκινήστε να ψάλλετε. Με ακουστικά δουλεύει καλύτερα.");
+    if (!playing) await start();
+  }
+  function smartOff(){
+    if (smartMic){ clearInterval(smartMic.timer); smartMic.stream.getTracks().forEach(t => t.stop()); smartMic = null; }
+    SMART.on = false; $("smart").setAttribute("aria-pressed", "false");
+    $("smartSt").hidden = true;
+  }
+  $("smart").onclick = async () => {
+    if (SMART.on) return smartOff();
+    try { await smartOn(); }
+    catch(e){
+      const here = /github\.io$/.test(location.hostname);
+      smartStatus(here
+        ? "Δεν δόθηκε άδεια για το μικρόφωνο. Επιτρέψτε το από το εικονίδιο δίπλα στη διεύθυνση και πατήστε ξανά."
+        : `Εδώ μέσα το μικρόφωνο δεν επιτρέπεται. Ανοίξτε τον Ισοκράτη από τη δική του σελίδα: <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE_URL.replace("https://", "")}</a>`);
+    }
+  };
+  render();
+})();
+</script>
+
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
+</body></html>
