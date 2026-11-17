@@ -78,6 +78,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visi
 .smart-btn[aria-pressed="true"]{border-color:var(--gold);background:var(--soft)}
 .smart-btn[aria-pressed="true"] .dot{border-color:var(--cinnabar);background:var(--cinnabar);animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.35}}
+.apich{justify-self:start;padding:8px 14px;border-radius:999px;border:1px solid var(--gold);background:transparent;color:var(--gold);font-weight:600}
 .smart-st{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .smart-st b{color:var(--fg);font-family:var(--display);font-size:16px;font-weight:400}
 .smart-st a{color:var(--gold)}
@@ -151,8 +152,9 @@ input[type=range]{accent-color:var(--gold)}
   <section class="smart" id="smartBox">
     <button class="smart-btn" id="smart" aria-pressed="false">
       <span class="dot" aria-hidden="true"></span>
-      <span><b id="smartTitle">Έξυπνο ίσον</b><small id="smartSub">Ακούει τον ψάλτη, κρατά το κούρδισμά του και αλλάζει ίσον μόνο του</small></span>
+      <span><b id="smartTitle">Έξυπνο ίσον</b><small id="smartSub">Ακούει το απήχημα και τον ψάλτη· κρατά το κούρδισμά του και αλλάζει ίσον όπως ο ισοκράτης</small></span>
     </button>
+    <button class="apich" id="apichima" hidden>Νέο απήχημα</button>
     <p class="smart-st" id="smartSt" hidden></p>
   </section>
 
@@ -339,7 +341,18 @@ input[type=range]{accent-color:var(--gold)}
       return this.alive;
     }
   }
-  registerProcessor("singer", Singer);`;
+  registerProcessor("singer", Singer);
+  class Tap extends AudioWorkletProcessor {
+    constructor(o){ super(); this.k = (o.processorOptions || {}).k || 1; this.ph = 0; this.out = new Float32Array(480); this.i = 0; }
+    process(ins){
+      const x = ins[0] && ins[0][0];
+      if (x) for (let j = 0; j < x.length; j++){
+        if (this.ph++ % this.k === 0){ this.out[this.i++] = x[j]; if (this.i === this.out.length){ this.port.postMessage(this.out); this.out = new Float32Array(480); this.i = 0; } }
+      }
+      return true;
+    }
+  }
+  registerProcessor("tap", Tap);`;
 
   let ctx = null, master = null, dry = null, wet = null, workletOK = false;
   let voices = [], organ = null, breathTimer = null, playing = false, wakeLock = null;
@@ -769,7 +782,7 @@ input[type=range]{accent-color:var(--gold)}
   };
   $("pad").onclick = ev => {
     const b = ev.target.closest(".note"); if (!b) return;
-    SMART.overrideUntil = performance.now() + 8000;
+    SM.overrideUntil = performance.now() + 8000;
     if (!playing){ S.note = b.dataset.n; render(); start(); return; }
     if (b.dataset.n === S.note) return;
     S.note = b.dataset.n; changed();
@@ -907,10 +920,172 @@ input[type=range]{accent-color:var(--gold)}
     } catch(e){ $("listenSt").textContent = "Δεν μπόρεσα να διαβάσω αυτό το αρχείο ήχου. Δοκιμάστε άλλη ηχογράφηση (π.χ. m4a, mp3, wav)."; }
   };
 
-  // ---------- Smart ison: listens live, follows the chanter's tuning, picks the ison ----------
+  // ---------- Smart ison ----------
+  // Rules (Karas, Misailidis, Hourmouzios, Lesvios; common practice):
+  //  · the ison starts on the last note of the απήχημα and is not held during the απήχημα itself;
+  //  · it moves to the base of a new tetrachord/pentachord when the melody develops a phrase there,
+  //    and anticipates a cadence it can see coming (stepwise descent onto one of the ήχος' ison notes);
+  //  · brief excursions or a single-note rest do not move it; the melody may dip below it;
+  //  · it is held through breaths and ends with the chanter.
   const SITE_URL = "https://kgxanthopoulos-lang.github.io/isokratis/";
-  const SMART = {on: false, overrideUntil: 0, hist: [], held: null, prop: null, propSince: 0, lastVoiced: 0, lastSwitch: 0, lastHz: 0};
   const idx = id => NOTES.findIndex(n => n.id === id);
+  const ISON_OPTS = {               // each ήχος' ison notes (first = base); `keep` = cadences that never move the ison
+    A:  {opts: ["Pa", "Di", "Ke"],         keep: ["Ni", "Zo", "Vou"]},
+    B:  {opts: ["Di", "Vou"],              keep: ["Vou", "Ga"]},
+    G:  {opts: ["Ga"],                     keep: []},
+    D:  {opts: ["Pa", "Vou", "Di"],        keep: []},
+    PA: {opts: ["Pa", "Ke_", "Di"],        keep: ["Vou"]},
+    PB: {opts: ["Pa", "Di", "Ni"],         keep: []},
+    V:  {opts: ["Ga", "Zo_", "Di"],        keep: []},
+    PD: {opts: ["Ni", "Ga", "Di", "Ke_"],  keep: []},
+  };
+
+  // ===SMART-EAR-START===
+  // Continuous pitch tracking → held notes → phrases. Works on a mono stream already low-passed (< ~1 kHz).
+  class SmartEar {
+    constructor(sr, cb){
+      this.sr = sr; this.cb = cb; this.buf = new Float32Array(0);
+      this.W = Math.round(sr * 0.05); this.tauMax = Math.ceil(sr / 62); this.tauMin = Math.floor(sr / 650);
+      this.hop = Math.round(sr * 0.02); this.t = 0; this.rmsH = []; this.pH = [];
+      this.note = null; this.cand = null; this.silent = 1; this.lastC = null; this.lastT = -9;
+      this.isoHz = 0; this.bleed = [];                 // the ison we are playing, and how loud it leaks back into the mic this.inPhrase = false; this.phrase = [];
+      this.d = new Float32Array(this.tauMax + 3);
+      this.N = 1024; this.need = Math.max(this.W + this.tauMax + 2, this.N);
+      this.win = Float32Array.from({length: this.N}, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (this.N - 1)));
+      this.re = new Float32Array(this.N); this.im = new Float32Array(this.N); this.mag = new Float32Array(this.N / 2);
+      this.cands = []; for (let f = 62; f < 650; f *= Math.pow(2, 1 / 72)) this.cands.push(f);
+    }
+    push(x){
+      const b = new Float32Array(this.buf.length + x.length); b.set(this.buf); b.set(x, this.buf.length);
+      const need = this.need; let o = 0;
+      while (b.length - o >= need){ this.frame(b.subarray(o, o + need)); o += this.hop; }
+      this.buf = b.slice(o);
+    }
+    yin(x){                                   // McLeod pitch method (NSDF): first key maximum ≥ 0.88 × the highest
+      const W = this.W, d = this.d;
+      for (let t = 0; t <= this.tauMax + 1; t++){
+        let r = 0, m = 0;
+        for (let i = 0; i < W; i++){ const a = x[i], b = x[i + t]; r += a * b; m += a * a + b * b; }
+        d[t] = m ? 2 * r / m : 0;
+      }
+      const peaks = []; let t = 1;
+      while (t <= this.tauMax && d[t] > 0) t++;                       // skip the zero-lag lobe
+      while (t <= this.tauMax){
+        while (t <= this.tauMax && d[t] <= 0) t++;
+        let bt = -1, bv = 0;
+        while (t <= this.tauMax && d[t] > 0){ if (d[t] > bv){ bv = d[t]; bt = t; } t++; }
+        if (bt > 0) peaks.push([bt, bv]);
+      }
+      const ok = peaks.filter(p => p[0] >= this.tauMin);
+      if (!ok.length) return {hz: 0, ap: 1};
+      const top = Math.max(...ok.map(p => p[1]));
+      if (top < 0.55) return {hz: 0, ap: 1};
+      let [bt, bv] = ok.find(p => p[1] >= 0.88 * top);
+      const f0 = this.shs(x);                                          // octave decided by all the harmonics
+      if (f0){
+        const want = this.sr / f0;
+        const near = ok.filter(p => Math.abs(p[0] / want - 1) < 0.07 && p[1] > 0.4).sort((p, q) => q[1] - p[1])[0];
+        if (near){ bt = near[0]; bv = near[1]; }
+        else return {hz: f0, ap: 0.3};
+      }
+      const a = d[bt - 1], c = d[bt + 1], den = a - 2 * bv + c;
+      return {hz: this.sr / (bt + (den ? 0.5 * (a - c) / den : 0)), ap: 1 - bv};
+    }
+    fft(){                                    // in-place radix-2 FFT of re/im
+      const n = this.N, re = this.re, im = this.im;
+      for (let i = 1, j = 0; i < n; i++){ let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+      for (let len = 2; len <= n; len <<= 1){
+        const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+        for (let i = 0; i < n; i += len){
+          let cr = 1, ci = 0;
+          for (let j = 0; j < len / 2; j++){
+            const a = i + j, b = a + len / 2, xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+            re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+            const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+          }
+        }
+      }
+    }
+    // Sub-harmonic summation: which fundamental best explains all the harmonics present (decides the octave).
+    shs(x){
+      const N = this.N, off = x.length - N;
+      for (let i = 0; i < N; i++){ this.re[i] = x[off + i] * this.win[i]; this.im[i] = 0; }
+      this.fft();
+      for (let i = 0; i < N / 2; i++) this.mag[i] = Math.sqrt(Math.hypot(this.re[i], this.im[i]));
+      const bin = N / this.sr, mag = this.mag, at = f => { const p = f * bin, i = Math.floor(p), fr = p - i; return i + 1 < N / 2 ? mag[i] * (1 - fr) + mag[i + 1] * fr : 0; };
+      let best = 0, bf = 0;
+      for (const f of this.cands){
+        let sc = 0, w = 1;
+        for (let k = 1; k <= 15 && k * f < 1400; k++){ sc += w * Math.max(at(k * f), at(k * f * 0.985), at(k * f * 1.015)); w *= 0.84; }
+        if (sc > best){ best = sc; bf = f; }
+      }
+      return bf;
+    }
+    frame(x){
+      this.t += this.hop / this.sr;
+      let e = 0; for (let i = 0; i < this.W; i++) e += x[i] * x[i];
+      const rms = Math.sqrt(e / this.W);
+      this.rmsH.push(rms); if (this.rmsH.length > 400) this.rmsH.shift();
+      const sorted = this.rmsH.slice().sort((p, q) => p - q);
+      const floor = sorted[Math.floor(sorted.length * 0.02)] || 0, loud = sorted[Math.floor(sorted.length * 0.9)] || 0;
+      const gate = Math.max(0.002, Math.min(floor * 3, loud * 0.12));
+      let voiced = false, c = 0;
+      if (rms > gate){
+        const p = this.yin(x);
+        if (p.hz > 60 && p.hz < 650 && p.ap < 0.35){ voiced = true; c = 1200 * Math.log2(p.hz / 55); }
+        if (voiced && this.isoHz){
+          // The ison leaking from the speaker is dead steady and exactly on the ison's pitch (any octave);
+          // a human voice always wavers. A steady run within ±7 cents of the ison is the leak, not the chanter.
+          const r = ((1200 * Math.log2(p.hz / this.isoHz)) % 1200 + 1200) % 1200, dev = r > 600 ? r - 1200 : r;
+          if (Math.abs(dev) < 7){ this.bleed.push(dev); if (this.bleed.length > 12) this.bleed.shift(); } else this.bleed = [];
+          if (this.bleed.length >= 8 && Math.max(...this.bleed) - Math.min(...this.bleed) < 6) voiced = false;
+        } else this.bleed = [];
+      }
+      if (voiced){
+        if (this.note && Math.abs(c - 1200 - this.note.c) < 80) c -= 1200;            // octave slips inside a held note
+        else if (this.note && Math.abs(c + 1200 - this.note.c) < 80) c += 1200;
+        this.pH.push(c); if (this.pH.length > 5) this.pH.shift();
+        const m = this.pH.slice().sort((p, q) => p - q)[this.pH.length >> 1];
+        this.voiced(m);
+      } else { this.pH = []; this.unvoiced(); }
+    }
+    voiced(m){
+      if (this.silent >= 0.24 && !this.inPhrase){ this.inPhrase = true; this.phrase = []; this.cb.phraseStart && this.cb.phraseStart(this.t); }
+      this.silent = 0;
+      const n = this.note;
+      if (n && Math.abs(m - n.c) < 50){
+        n.vals.push(m); n.dur += 0.02; if (n.vals.length <= 25) n.c = n.vals.reduce((p, q) => p + q, 0) / n.vals.length;
+        if (!n.on && n.dur >= 0.22){ n.on = true; this.cb.noteStart && this.cb.noteStart(this.pub(n)); }
+      } else { this.endNote(); this.note = {c: m, vals: [m], dur: 0.02, t0: this.t, on: false}; }
+      this.cb.voice && this.cb.voice(55 * Math.pow(2, m / 1200), this.t);
+    }
+    unvoiced(){
+      this.silent += 0.02;
+      if (this.silent >= 0.08) this.endNote();
+      if (this.inPhrase && this.silent >= 0.26){ this.inPhrase = false; this.cb.phraseEnd && this.cb.phraseEnd(this.phrase.slice(), this.t); }
+      this.cb.silence && this.cb.silence(this.silent, this.t);
+    }
+    setIson(hz){ if (!hz || Math.abs(1200 * Math.log2(hz / (this.isoHz || hz))) > 30) this.bleed = []; this.isoHz = hz || 0; }
+    pub(n){
+      const v = n.vals.slice().sort((p, q) => p - q), c = v[v.length >> 1];
+      return {hz: 55 * Math.pow(2, c / 1200), dur: n.dur, t0: n.t0, id: n};
+    }
+    endNote(){
+      const n = this.note; this.note = null;
+      if (n && n.on){ const p = this.pub(n); this.lastC = 1200 * Math.log2(p.hz / 55); this.lastT = this.t; this.phrase.push(p); this.cb.noteEnd && this.cb.noteEnd(p); }
+    }
+  }
+  // ===SMART-EAR-END===
+
+  const SM = {on: false, state: "off", ear: null, mic: null, notes: [], lastSwitch: -99, overrideUntil: 0,
+              ducked: false, prop: null, propSince: 0, t: 0, heard: ""};
+  function nudge(c){
+    S.fine += c;
+    while (S.fine > 50 && S.tonic < TONIC_MAX){ S.fine -= 100; S.tonic++; }
+    while (S.fine < -50 && S.tonic > TONIC_MIN){ S.fine += 100; S.tonic--; }
+    S.fine = Math.round(Math.max(-50, Math.min(50, S.fine)) * 10) / 10;
+    render(); glideAll(0.8); earIson();
+  }
   function glideAll(sec){                       // small retune without restarting the voices
     if (!ctx || !playing) return;
     const t = ctx.currentTime, hz = freqOf(S.note);
@@ -918,91 +1093,165 @@ input[type=range]{accent-color:var(--gold)}
     voices.forEach(v => v.node.port.postMessage({f0: hz, glide: sec}));
     if (organ) organ.nodes.forEach(o => o.frequency.setTargetAtTime(hz, t, sec / 3));
   }
-  function nudge(c){
-    S.fine += c;
-    while (S.fine > 50 && S.tonic < TONIC_MAX){ S.fine -= 100; S.tonic++; }
-    while (S.fine < -50 && S.tonic > TONIC_MIN){ S.fine += 100; S.tonic--; }
-    S.fine = Math.round(Math.max(-50, Math.min(50, S.fine)) * 10) / 10;
-    render(); glideAll(0.8);
-  }
   function nearest(hz){
+    const top = freqOf("Pa2") * 1.06, bot = freqOf("Ni_") / 1.06;
+    while (hz > top) hz /= 2;
+    while (hz < bot) hz *= 2;
     let best = null;
     NOTES.forEach((n, i) => { const c = 1200 * Math.log2(hz / freqOf(n.id)); if (!best || Math.abs(c) < Math.abs(best.c)) best = {i, c}; });
     return best;
   }
-  function smartStatus(txt){ const p = $("smartSt"); p.innerHTML = txt; p.hidden = false; }
-  function smartFrame(hz){
-    const t = performance.now(), e = echos(), cur = idx(S.note), baseI = idx(e.base);
-    if (hz){
-      const top = freqOf("Pa2") * 1.06, bot = freqOf("Ni_") / 1.06;
-      while (hz > top) hz /= 2;
-      while (hz < bot) hz *= 2;
-      const r = ((1200 * Math.log2(hz / freqOf(S.note))) % 1200 + 1200) % 1200;
-      if (r < 20 || r > 1180){                                        // unison with the ison (or the ison itself): counts for the ison, never for tuning
-        SMART.lastVoiced = t; SMART.held = null;
-        SMART.hist.push({t, i: cur}); SMART.hist = SMART.hist.filter(h => t - h.t < 2500);
+  function earIson(){ if (SM.ear) SM.ear.setIson(SM.ducked || !playing ? 0 : freqOf(S.note)); }
+  function duck(on, sec){
+    SM.ducked = on; setTimeout(earIson, on ? 0 : 400);
+    if (!ctx || !master) return;
+    const t = ctx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setTargetAtTime(on ? 0 : volGain(), t, (sec || (on ? 0.5 : 0.08)) / 3);
+  }
+  function smartStatus(html){ const p = $("smartSt"); p.innerHTML = html; p.hidden = false; }
+  function smartShow(extra){
+    const cur = NOTES[idx(S.note)];
+    const st = SM.state === "await" ? "Περιμένω το απήχημα…" : `Ίσον <b>${cur.name}${cur.oct ? " " + cur.oct : ""}</b>`;
+    smartStatus(`${st}${SM.heard ? ` · ψάλλετε <b>${SM.heard}</b>` : ""}${S.fine ? ` · κούρδισμα ${S.fine > 0 ? "+" : ""}${Math.round(S.fine)}c` : ""}${extra ? `<br>${extra}` : ""}`);
+  }
+  function setIson(i, why){
+    const id = NOTES[i].id;
+    if (S.note === id) return;
+    S.note = id; SM.lastSwitch = SM.t; SM.prop = null;
+    changed(); earIson(); smartShow(`→ ${NOTES[i].name}: ${why}`);
+  }
+  const optIdx = () => ISON_OPTS[S.echos].opts.map(idx);
+  const baseIdx = () => idx(echos().base);
+  function recent(sec){ return SM.notes.filter(n => n.t0 + n.dur > SM.t - sec); }
+  function share(notes, lo, hi){
+    let tot = 0, inn = 0;
+    notes.forEach(n => { tot += n.dur; if (n.deg >= lo && n.deg <= hi) inn += n.dur; });
+    return tot ? inn / tot : 0;
+  }
+  function lowDeg(notes, q){
+    const v = notes.slice().sort((a, b) => a.deg - b.deg), tot = v.reduce((p, n) => p + n.dur, 0);
+    let acc = 0; for (const n of v){ acc += n.dur; if (acc >= tot * q) return n.deg; }
+    return v.length ? v[v.length - 1].deg : 0;
+  }
+  // Where is the melody developing? The highest ison note whose pentachord holds the phrase.
+  function developing(win = 4.5, minDur = 2.0){
+    const notes = recent(win), tot = notes.reduce((p, n) => p + n.dur, 0);
+    if (tot < minDur || notes.length < 3) return null;
+    const low = lowDeg(notes, 0.15);
+    let pick = null;
+    optIdx().forEach(c => { if (low >= c && share(notes, c, c + 4) >= 0.8 && (pick === null || c > pick)) pick = c; });
+    return pick;
+  }
+  const canSwitch = () => SM.t - SM.lastSwitch >= 2.5 && performance.now() >= SM.overrideUntil;
+
+  const BRAIN = {
+    phraseStart(){
+      if (SM.state === "follow" && SM.ducked){ S.note = echos().base; changed(); duck(false); }
+    },
+    voice(hz, t){
+      SM.t = t;
+      if (SM.state !== "follow") return;
+      const nn = nearest(hz), n = NOTES[nn.i];
+      const h = `${n.name}${n.oct ? " " + n.oct : ""}`;
+      if (h !== SM.heard){ SM.heard = h; smartShow(); }
+    },
+    noteStart(p){
+      if (SM.state !== "follow") return;
+      const nn = nearest(p.hz); p.deg = nn.i;
+      SM.notes.push(p); SM.notes = SM.notes.filter(n => n.t0 > SM.t - 20);
+      if (!canSwitch()) return;
+      const cur = idx(S.note), opts = optIdx(), base = baseIdx();
+      // 1) Anticipate a cadence: stepwise descent heading onto an ison note one step below.
+      const seq = SM.notes.slice(-3).map(n => n.deg);
+      if (seq.length === 3 && seq[0] - seq[1] === 1 && seq[1] - seq[2] === 1){
+        const target = seq[2] - 1;
+        if (opts.includes(target) && target !== cur && target < cur){
+          const notes = recent(6), run = (() => { let r = 1; const a = SM.notes; for (let k = a.length - 1; k > 0 && a[k - 1].deg - a[k].deg === 1; k--) r++; return r; })();
+          if (target === base || share(notes, target, target + 4) >= 0.5 || run >= 4){ setIson(target, "προλαμβάνει την κατάληξη"); return; }
+        }
+      }
+      // 1b) Returning to the base from either side: anticipate the arrival one step early.
+      if (cur !== base && seq.length === 3){
+        const up = seq[1] - seq[0] === 1 && seq[2] - seq[1] === 1, down = seq[0] - seq[1] === 1 && seq[1] - seq[2] === 1;
+        if ((up && seq[2] + 1 === base && cur < base) || (down && seq[2] - 1 === base && cur > base)){ setIson(base, "προλαμβάνει την επιστροφή στη βάση"); return; }
+      }
+      // 2) The melody develops a phrase in another tetrachord/pentachord: move at the start of a note.
+      let dev = developing();
+      if (cur !== base && developing(2.5, 1.2) === base) dev = base;
+      if (dev !== null && dev !== cur){
+        if (SM.prop !== dev){ SM.prop = dev; SM.propSince = SM.t; return; }
+        if (SM.t - SM.propSince >= 0.8) setIson(dev, dev === base ? "επιστροφή στη βάση" : "νέο τετράχορδο");
+      } else SM.prop = null;
+    },
+    noteEnd(p){
+      if (SM.state !== "follow") return;
+      const last = SM.notes[SM.notes.length - 1];
+      if (last && last.id === p.id) last.dur = p.dur;
+    },
+    phraseEnd(phrase){
+      const held = phrase.filter(n => n.dur >= 0.4), fin = held[held.length - 1];
+      if (!fin) return;
+      if (SM.state === "await"){                                       // the απήχημα ends on the base
+        applyBase(fin.hz);
+        SM.state = "follow"; SM.notes = []; SM.lastSwitch = SM.t; SM.heard = "";
+        duck(false);
+        smartShow(`Βάση από το απήχημα: ${midiName(S.tonic)}${S.fine ? (S.fine > 0 ? " +" : " −") + Math.abs(Math.round(S.fine)) + "c" : ""}`);
         return;
       }
-      SMART.lastVoiced = t;
-      const nn = nearest(hz);
-      SMART.hist.push({t, i: nn.i});
-      if (SMART.held && Math.abs(1200 * Math.log2(hz / SMART.held.hz)) < 40){ SMART.held.n++; SMART.held.hz = SMART.held.hz * 0.8 + hz * 0.2; }
-      else SMART.held = {hz, n: 1, i: nn.i};
-      // Follow the chanter's pitch: only on held "pillar" notes of the ήχος (base and usual ison notes), never on altered ones.
-      if (SMART.held.n === 10){
-        const id = NOTES[SMART.held.i].id, pillars = [e.base, ...e.sug].map(x => x.replace("_", "").replace("2", ""));
-        const c = 1200 * Math.log2(SMART.held.hz / freqOf(id));
-        if (pillars.includes(id.replace("_", "").replace("2", "")) && !S.alt[id] && Math.abs(c) > 5 && Math.abs(c) < 40) nudge(c * 0.35);
-      }
-      const n = NOTES[nn.i];
-      smartStatus(`Ψάλλετε <b>${n.name}${n.oct ? " " + n.oct : ""}</b> ${nn.c >= 0 ? "+" : "−"}${Math.abs(Math.round(nn.c))}c · ίσον <b>${NOTES[cur].name}</b>${S.fine ? ` · κούρδισμα ${S.fine > 0 ? "+" : ""}${Math.round(S.fine)}c` : ""}`);
-    } else if (t - SMART.lastVoiced > 400) SMART.held = null;
-    SMART.hist = SMART.hist.filter(h => t - h.t < 2500);
-    if (t < SMART.overrideUntil) return;
-    // Long rest after the chant: return to the base.
-    if (!hz && t - SMART.lastVoiced > 2000 && SMART.lastVoiced && cur !== baseI && t - SMART.lastSwitch > 2500){
-      S.note = e.base; SMART.lastSwitch = t; SMART.prop = null; changed(); return;
-    }
-    if (SMART.hist.length < 15) return;                         // need ~0.75 s of singing to judge
-    const ds = SMART.hist.map(h => h.i).sort((a, b) => a - b);
-    const low = ds[Math.floor(ds.length * 0.2)], med = ds[ds.length >> 1];
-    const cand = [...new Set([e.base, ...e.sug])].map(idx).filter(i => i >= 0).sort((a, b) => a - b);
-    let pick;
-    if (low >= baseI && low <= baseI + 2) pick = baseI;         // melody still touches the base's own tetrachord
-    else { const below = cand.filter(c => c <= low); pick = below.length ? below[below.length - 1] : cand[0]; }
-    if (pick === cur){ SMART.prop = null; return; }
-    if (SMART.prop !== pick){ SMART.prop = pick; SMART.propSince = t; return; }
-    const settled = !hz || (SMART.held && SMART.held.n >= 6);
-    if (t - SMART.propSince >= 1200 && t - SMART.lastSwitch > 2500 && settled){
-      S.note = NOTES[pick].id; SMART.lastSwitch = t; SMART.prop = null; changed();
-    }
-  }
-  let smartMic = null;
+      const nn = nearest(fin.hz), cur = idx(S.note), e = echos();
+      // Follow the chanter's tuning only from cadences on the base (the most reliable reference).
+      if (NOTES[nn.i].d === noteBy(e.base).d && Math.abs(nn.c) < 70 && !(nn.i === cur && Math.abs(nn.c) < 6)) nudge(nn.c * 0.6);
+      // Catch the cadence: a held phrase-final note on another ison note of the ήχος.
+      const keep = ISON_OPTS[S.echos].keep.map(idx);
+      if (fin.dur >= 0.6 && optIdx().includes(nn.i) && nn.i !== cur && !keep.includes(nn.i) && canSwitch()) setIson(nn.i, "πιάνει την κατάληξη");
+    },
+    silence(sec){
+      if (SM.state !== "follow") return;
+      if (sec >= 2.5 && !SM.ducked){ duck(true, 0.8); SM.heard = ""; smartShow("Ο ψάλτης σταμάτησε· το ίσον σωπαίνει."); }
+      if (sec >= 7){ SM.state = "await"; SM.notes = []; smartShow("Αν ακολουθεί νέο μέλος, ψάλτε το απήχημα."); }
+    },
+  };
+
   async function smartOn(){
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("no-mic");
     const stream = await Promise.race([
       navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: false, autoGainControl: true}}),
-      new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 8000))]);
+      new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 10000))]);
     await ensureCtx(); if (ctx.state !== "running") await ctx.resume();
-    const src = ctx.createMediaStreamSource(stream), an = ctx.createAnalyser(); an.fftSize = 2048; src.connect(an);
-    const buf = new Float32Array(an.fftSize);
-    smartMic = {stream, timer: setInterval(() => {
-      an.getFloatTimeDomainData(buf);
-      const d = decimate(buf, ctx.sampleRate);
-      smartFrame(yin(d.x, d.sr, 60, 700));
-    }, 50)};
-    Object.assign(SMART, {on: true, hist: [], held: null, prop: null, lastVoiced: 0, lastSwitch: performance.now()});
-    $("smart").setAttribute("aria-pressed", "true");
-    smartStatus("Ακούω… ξεκινήστε να ψάλλετε. Με ακουστικά δουλεύει καλύτερα.");
+    const k = Math.max(1, Math.round(ctx.sampleRate / 12000));
+    const src = ctx.createMediaStreamSource(stream);
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 65;
+    const lp1 = ctx.createBiquadFilter(); lp1.type = "lowpass"; lp1.frequency.value = 1100;
+    const lp2 = ctx.createBiquadFilter(); lp2.type = "lowpass"; lp2.frequency.value = 1100;
+    src.connect(hp); hp.connect(lp1); lp1.connect(lp2);
+    SM.ear = new SmartEar(ctx.sampleRate / k, BRAIN);
+    const sink = ctx.createGain(); sink.gain.value = 0; sink.connect(ctx.destination);
+    let tap;
+    try {
+      tap = new AudioWorkletNode(ctx, "tap", {numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: {k}});
+      tap.port.onmessage = e => SM.ear && SM.ear.push(e.data);
+    } catch(e){
+      tap = ctx.createScriptProcessor(2048, 1, 1);
+      tap.onaudioprocess = ev => { const x = ev.inputBuffer.getChannelData(0), y = new Float32Array(Math.floor(x.length / k)); for (let i = 0; i < y.length; i++) y[i] = x[i * k]; SM.ear && SM.ear.push(y); };
+    }
+    lp2.connect(tap); tap.connect(sink);
+    SM.mic = {stream, nodes: [src, hp, lp1, lp2, tap, sink]};
+    Object.assign(SM, {on: true, state: "await", notes: [], lastSwitch: -99, prop: null, heard: ""});
+    $("smart").setAttribute("aria-pressed", "true"); $("apichima").hidden = false;
+    duck(true, 0.05);
     if (!playing) await start();
+    smartShow("Ψάλτε το απήχημα· το ίσον θα ξεκινήσει στη βάση όπου καταλήγετε. Με ακουστικά δουλεύει καλύτερα.");
   }
   function smartOff(){
-    if (smartMic){ clearInterval(smartMic.timer); smartMic.stream.getTracks().forEach(t => t.stop()); smartMic = null; }
-    SMART.on = false; $("smart").setAttribute("aria-pressed", "false");
+    if (SM.mic){ SM.mic.stream.getTracks().forEach(t => t.stop()); SM.mic.nodes.forEach(n => { try { n.disconnect(); } catch(e){} }); SM.mic = null; }
+    SM.ear = null; SM.on = false; SM.state = "off";
+    if (SM.ducked) duck(false);
+    $("smart").setAttribute("aria-pressed", "false"); $("apichima").hidden = true;
     $("smartSt").hidden = true;
   }
   $("smart").onclick = async () => {
-    if (SMART.on) return smartOff();
+    if (SM.on) return smartOff();
     try { await smartOn(); }
     catch(e){
       const here = /github\.io$/.test(location.hostname);
@@ -1010,6 +1259,11 @@ input[type=range]{accent-color:var(--gold)}
         ? "Δεν δόθηκε άδεια για το μικρόφωνο. Επιτρέψτε το από το εικονίδιο δίπλα στη διεύθυνση και πατήστε ξανά."
         : `Εδώ μέσα το μικρόφωνο δεν επιτρέπεται. Ανοίξτε τον Ισοκράτη από τη δική του σελίδα: <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE_URL.replace("https://", "")}</a>`);
     }
+  };
+  $("apichima").onclick = () => {
+    if (!SM.on) return;
+    SM.state = "await"; SM.notes = []; duck(true, 0.3);
+    smartShow("Ψάλτε το νέο απήχημα.");
   };
   render();
 })();

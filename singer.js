@@ -40,3 +40,14 @@ class Singer extends AudioWorkletProcessor {
   }
 }
 registerProcessor("singer", Singer);
+class Tap extends AudioWorkletProcessor {
+  constructor(o){ super(); this.k = (o.processorOptions || {}).k || 1; this.ph = 0; this.out = new Float32Array(480); this.i = 0; }
+  process(ins){
+    const x = ins[0] && ins[0][0];
+    if (x) for (let j = 0; j < x.length; j++){
+      if (this.ph++ % this.k === 0){ this.out[this.i++] = x[j]; if (this.i === this.out.length){ this.port.postMessage(this.out); this.out = new Float32Array(480); this.i = 0; } }
+    }
+    return true;
+  }
+}
+registerProcessor("tap", Tap);
